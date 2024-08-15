@@ -4,6 +4,12 @@ git log --author="$GIT_USER_NAME" --format="%H %ai" の結果を集計するプ�
 
 ```gcw``` は、```Git Calc Worktime``` の略です。
 
+# Install
+
+```sh
+go install github.com/devlights/gcw@latest
+```
+
 # Usage
 
 ```sh
