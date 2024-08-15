@@ -2,9 +2,10 @@ package main
 
 import (
 	"bufio"
-	"bytes"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -19,6 +20,10 @@ type (
 		userName string
 		timeZone string
 	}
+)
+
+const (
+	dateFormat = "2006-01-02 15:04:05 -0700"
 )
 
 var (
@@ -65,11 +70,24 @@ func main() {
 
 func run() error {
 	var (
-		cmd    = exec.Command("git", "-C", args.dir, "log", fmt.Sprintf("--author=%s", args.userName), "--format=%H %ai")
-		output []byte
-		err    error
+		localTz *time.Location
+		err     error
 	)
-	output, err = cmd.Output()
+	localTz, err = time.LoadLocation(args.timeZone)
+	if err != nil {
+		return fmt.Errorf("ローカルタイムゾーン取得エラー: %w", err)
+	}
+
+	var (
+		gitCmd    = exec.Command("git", "-C", args.dir, "log", fmt.Sprintf("--author=%s", args.userName), "--format=%H %ai")
+		cmdStdout io.ReadCloser
+	)
+	cmdStdout, err = gitCmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("gitコマンド実行エラー: %w", err)
+	}
+
+	err = gitCmd.Start()
 	if err != nil {
 		return fmt.Errorf("gitコマンド実行エラー: %w", err)
 	}
@@ -77,47 +95,50 @@ func run() error {
 	var (
 		workweek = make(map[int]int)
 		weekend  = make(map[int]int)
-		localTz  *time.Location
-	)
-	localTz, err = time.LoadLocation("Asia/Tokyo")
-	if err != nil {
-		return fmt.Errorf("ローカルタイムゾーン取得エラー: %w", err)
-	}
-
-	var (
-		reader  = bytes.NewReader(output)
-		scanner = bufio.NewScanner(reader)
+		scanner  = bufio.NewScanner(cmdStdout)
 	)
 	for scanner.Scan() {
 		var (
 			line      = scanner.Text()
 			fields    = strings.Fields(line) // e.g., e71ef8f2ea60e651c272cb51127121e1d7597928 2024-08-15 16:54:57 +0900
 			timestamp time.Time
-			localTime time.Time
 		)
 		if len(fields) < 2 {
 			continue
 		}
 
-		timestamp, err = time.Parse("2006-01-02 15:04:05 -0700", fields[1]+" "+fields[2]+" "+fields[3])
+		timestamp, err = time.Parse(dateFormat, fields[1]+" "+fields[2]+" "+fields[3])
 		if err != nil {
-			fmt.Printf("日付解析エラー: %v\n", err)
+			fmt.Fprintf(os.Stderr, "日付解析エラー (行: %s): %v\n", line, err)
 			continue
 		}
 
-		localTime = timestamp.In(localTz)
+		var (
+			localTime = timestamp.In(localTz)
+			hour      = localTime.Hour()
+		)
 		switch localTime.Weekday() {
 		case time.Saturday:
 			fallthrough
 		case time.Sunday:
-			weekend[localTime.Hour()]++
+			weekend[hour]++
 		default:
-			workweek[localTime.Hour()]++
+			workweek[hour]++
 		}
 	}
 
-	if err = scanner.Err(); err != nil {
+	err = scanner.Err()
+	if err != nil {
 		return fmt.Errorf("読み取りエラー: %w", err)
+	}
+
+	err = gitCmd.Wait()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return fmt.Errorf("gitコマンドが非ゼロのステータスで終了: %d, エラー: %w", exitErr.ExitCode(), err)
+		}
+		return fmt.Errorf("gitコマンド実行エラー: %w", err)
 	}
 
 	printGraph(workweek, weekend)
