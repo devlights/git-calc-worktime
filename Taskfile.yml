@@ -20,5 +20,4 @@ tasks:
   run:
     deps: [ build ]
     cmds:
-      #- git log --author="{{.USER_NAME}}" --format="%H %ai" | ./{{.APP_NAME}}{{exeExt}}
       - ./{{.APP_NAME}}{{exeExt}} -user {{.USER_NAME}}

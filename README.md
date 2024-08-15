@@ -2,6 +2,8 @@
 
 git log --author="$GIT_USER_NAME" --format="%H %ai" の結果を集計するプログラムです。
 
+```gcw``` は、```Git Calc Worktime``` の略です。
+
 # Usage
 
 ```sh
@@ -16,7 +18,7 @@ Usage of ./gcw:
 ```
 ```sh
 $ gcw -user Gitユーザ名 -dir リポジトリのパス -tz ローカルタイムゾーン(デフォルトはAsia/Tokyo)
-  hour        Monday to Friday                      Saturday and Sunday
+hour        Monday to Friday                      Saturday and Sunday
 00      0                                     0
 01      0                                     0
 02      0                                     0
@@ -54,6 +56,8 @@ Total:   1431 (95.5%)     68 (4.5%)
 
 とパイプ経由で入力を受け取り処理するようになっていましたが、Windows環境でも実行しやすいように
 処理内で git コマンドも実行するように変更しています。
+
+素晴らしいアイデアを教えてくれた元記事に感謝します。
 
 # Build
 
