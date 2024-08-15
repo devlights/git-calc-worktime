@@ -13,12 +13,13 @@ tasks:
   build:
     dir: cmd/gcw
     cmds:
-      - go build -o ../../{{.APP_NAME}}{{exeExt}} .
+      - go build -o {{.APP_NAME}}{{exeExt}} .
     sources:
       - ./*.go
     generates:
-      - ../../{{.APP_NAME}}{{exeExt}}
+      - ./{{.APP_NAME}}{{exeExt}}
   run:
     deps: [ build ]
+    dir: cmd/gcw
     cmds:
       - ./{{.APP_NAME}}{{exeExt}} -user {{.USER_NAME}}
