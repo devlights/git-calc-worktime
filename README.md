@@ -7,7 +7,7 @@ git log --author="$GIT_USER_NAME" --format="%H %ai" の結果を集計するプ�
 # Install
 
 ```sh
-go install github.com/devlights/gcw@latest
+go install github.com/devlights/git-calc-worktime/cmd/gcw@latest
 ```
 
 # Usage
