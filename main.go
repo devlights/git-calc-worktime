@@ -2,9 +2,10 @@ package main
 
 import (
 	"bufio"
-	"bytes"
+	_ "bytes"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -74,10 +75,15 @@ func run() error {
 	}
 
 	var (
-		cmd    = exec.Command("git", "-C", args.dir, "log", fmt.Sprintf("--author=%s", args.userName), "--format=%H %ai")
-		output []byte
+		cmd       = exec.Command("git", "-C", args.dir, "log", fmt.Sprintf("--author=%s", args.userName), "--format=%H %ai")
+		cmdStdout io.ReadCloser
 	)
-	output, err = cmd.Output()
+	cmdStdout, err = cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("gitコマンド実行エラー: %w", err)
+	}
+
+	err = cmd.Start()
 	if err != nil {
 		return fmt.Errorf("gitコマンド実行エラー: %w", err)
 	}
@@ -85,8 +91,7 @@ func run() error {
 	var (
 		workweek = make(map[int]int)
 		weekend  = make(map[int]int)
-		reader   = bytes.NewReader(output)
-		scanner  = bufio.NewScanner(reader)
+		scanner  = bufio.NewScanner(cmdStdout)
 	)
 	for scanner.Scan() {
 		var (
@@ -118,7 +123,13 @@ func run() error {
 		}
 	}
 
-	if err = scanner.Err(); err != nil {
+	err = cmd.Wait()
+	if err != nil {
+		return fmt.Errorf("gitコマンド実行エラー: %w", err)
+	}
+
+	err = scanner.Err()
+	if err != nil {
 		return fmt.Errorf("読み取りエラー: %w", err)
 	}
 
