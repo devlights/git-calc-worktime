@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	_ "bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -20,6 +20,10 @@ type (
 		userName string
 		timeZone string
 	}
+)
+
+const (
+	dateFormat = "2006-01-02 15:04:05 -0700"
 )
 
 var (
@@ -69,21 +73,21 @@ func run() error {
 		localTz *time.Location
 		err     error
 	)
-	localTz, err = time.LoadLocation("Asia/Tokyo")
+	localTz, err = time.LoadLocation(args.timeZone)
 	if err != nil {
 		return fmt.Errorf("ローカルタイムゾーン取得エラー: %w", err)
 	}
 
 	var (
-		cmd       = exec.Command("git", "-C", args.dir, "log", fmt.Sprintf("--author=%s", args.userName), "--format=%H %ai")
+		gitCmd    = exec.Command("git", "-C", args.dir, "log", fmt.Sprintf("--author=%s", args.userName), "--format=%H %ai")
 		cmdStdout io.ReadCloser
 	)
-	cmdStdout, err = cmd.StdoutPipe()
+	cmdStdout, err = gitCmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("gitコマンド実行エラー: %w", err)
 	}
 
-	err = cmd.Start()
+	err = gitCmd.Start()
 	if err != nil {
 		return fmt.Errorf("gitコマンド実行エラー: %w", err)
 	}
@@ -103,9 +107,9 @@ func run() error {
 			continue
 		}
 
-		timestamp, err = time.Parse("2006-01-02 15:04:05 -0700", fields[1]+" "+fields[2]+" "+fields[3])
+		timestamp, err = time.Parse(dateFormat, fields[1]+" "+fields[2]+" "+fields[3])
 		if err != nil {
-			fmt.Printf("日付解析エラー: %v\n", err)
+			fmt.Fprintf(os.Stderr, "日付解析エラー (行: %s): %v\n", line, err)
 			continue
 		}
 
@@ -123,14 +127,18 @@ func run() error {
 		}
 	}
 
-	err = cmd.Wait()
-	if err != nil {
-		return fmt.Errorf("gitコマンド実行エラー: %w", err)
-	}
-
 	err = scanner.Err()
 	if err != nil {
 		return fmt.Errorf("読み取りエラー: %w", err)
+	}
+
+	err = gitCmd.Wait()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return fmt.Errorf("gitコマンドが非ゼロのステータスで終了: %d, エラー: %w", exitErr.ExitCode(), err)
+		}
+		return fmt.Errorf("gitコマンド実行エラー: %w", err)
 	}
 
 	printGraph(workweek, weekend)
