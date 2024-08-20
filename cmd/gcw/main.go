@@ -79,7 +79,8 @@ func run() error {
 	}
 
 	var (
-		gitCmd    = exec.Command("git", "-C", args.dir, "log", fmt.Sprintf("--author=%s", args.userName), "--format=%H %ai")
+		// git --no-pager -C /path/to/repository log --author=git-user-name --format="%H %ai"
+		gitCmd    = exec.Command("git", "--no-pager", "-C", args.dir, "log", fmt.Sprintf("--author=%s", args.userName), "--format=%H %ai")
 		cmdStdout io.ReadCloser
 	)
 	cmdStdout, err = gitCmd.StdoutPipe()
